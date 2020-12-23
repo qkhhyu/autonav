@@ -10,4 +10,4 @@
 /DebugConfig
 /Objects
 /Listings
-!**/Sources/autonav
+!/Sources/autonav
