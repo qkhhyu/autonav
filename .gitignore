@@ -13,3 +13,12 @@
 /Sources/client
 /Sources/common
 /Sources/cpu
+/Sources/debug
+/Sources/driver
+/Sources/kernel
+/Sources/main
+/Sources/modem
+/Sources/module
+/Sources/protect
+/Sources/service
+/Sources/storage
