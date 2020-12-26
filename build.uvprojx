@@ -403,24 +403,24 @@
           <GroupName>autonav</GroupName>
           <Files>
             <File>
-              <FileName>auto_boat_cruise.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\autonav\auto_boat_cruise.c</FilePath>
-            </File>
-            <File>
-              <FileName>auto_location.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\autonav\auto_location.c</FilePath>
-            </File>
-            <File>
               <FileName>auto_boat.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\autonav\auto_boat.c</FilePath>
             </File>
             <File>
+              <FileName>auto_boat_cruise.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\autonav\auto_boat_cruise.c</FilePath>
+            </File>
+            <File>
               <FileName>auto_dist.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\autonav\auto_dist.c</FilePath>
+            </File>
+            <File>
+              <FileName>auto_location.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\autonav\auto_location.c</FilePath>
             </File>
             <File>
               <FileName>auto_pid.c</FileName>
@@ -458,11 +458,6 @@
               <FilePath>.\Sources\service\svc_hmi.c</FilePath>
             </File>
             <File>
-              <FileName>svc_gps.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\service\svc_gps.c</FilePath>
-            </File>
-            <File>
               <FileName>svc_dist.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\service\svc_dist.c</FilePath>
@@ -491,6 +486,11 @@
               <FileName>svc_compass.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\service\svc_compass.c</FilePath>
+            </File>
+            <File>
+              <FileName>svc_gnss.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\service\svc_gnss.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -537,6 +537,11 @@
               <FileType>1</FileType>
               <FilePath>.\Sources\storage\track.c</FilePath>
             </File>
+            <File>
+              <FileName>xgfw.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\storage\xgfw.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -546,11 +551,6 @@
               <FileName>dist.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\module\dist.c</FilePath>
-            </File>
-            <File>
-              <FileName>gps.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\module\gps.c</FilePath>
             </File>
             <File>
               <FileName>hmi.c</FileName>
@@ -576,6 +576,11 @@
               <FileName>batt.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\module\batt.c</FilePath>
+            </File>
+            <File>
+              <FileName>gnss.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\module\gnss.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -661,6 +666,11 @@
               <FileName>mqtt.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\common\mqtt.c</FilePath>
+            </File>
+            <File>
+              <FileName>base64.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Sources\common\base64.c</FilePath>
             </File>
           </Files>
         </Group>

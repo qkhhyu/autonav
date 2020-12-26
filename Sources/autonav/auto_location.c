@@ -6,8 +6,8 @@
 #include "bsp.h"
 #include "hmi.h"
 #include "sail.h"
-#include "gps.h"
-#include "svc_gps.h"
+#include "gnss.h"
+#include "svc_gnss.h"
 #include "svc_compass.h"
 
 #include "auto_boat.h"
@@ -62,16 +62,16 @@ void auto_location_set_destination(long double latitude,long double longitude)
 	LOG("[AUTO:LOCATION]set destination destlatitude=%lf destlongitude=%lf\r\n",destlatitude,destlongitude);
 }
 
-extern void auto_get_gpsspeed(struct gps *gps);
+extern void auto_get_gpsspeed(struct gnss *gnss);
 //获取设置当前位置经纬度坐标
-static void auto_get_gpslocation(struct gps *gps)
+static void auto_get_gpslocation(struct gnss *gnss)
 {
 	mutex_lock(location_mutex);
-	currentlatitude = gps->latitude;
-	currentlongitude = gps->longitude;
-	currentspeed = gps->speed;
+	currentlatitude = gnss->latitude;
+	currentlongitude = gnss->longitude;
+	currentspeed = gnss->speed;
 	mutex_unlock(location_mutex);	
-	auto_get_gpsspeed(gps);
+	auto_get_gpsspeed(gnss);
 	event_post(location_event);
 }
 
@@ -219,12 +219,9 @@ static void location_thread(void *arg)
 	int fixazimuth = 0;
 	int heading;
 	int tracksnum = 0;
-	int i = 0;
 	int current_track_index = 0;
 	int last_track_index = 0;
 	int next_track_index = 0;
-	long double distance_temp = 0;
-	long double distance_next = 0; 
 	long double total_distance = 0;//总长度
 	double remaining_distance = 0;//剩余长度
 	int corner = 0;
@@ -591,7 +588,7 @@ void auto_location_resume(void)
 }
 void auto_location_init(void)
 {
-	svc_gps_bind(auto_get_gpslocation);
+	svc_gnss_bind(auto_get_gpslocation);
 	auto_dist_bind(auto_get_dist);
 	svc_compass_bind(auto_location_get_heading);
 	location_event = event_create();

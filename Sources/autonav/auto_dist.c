@@ -6,8 +6,8 @@
 #include "bsp.h"
 #include "hmi.h"
 #include "sail.h"
-#include "gps.h"
-#include "svc_gps.h"
+#include "gnss.h"
+#include "svc_gnss.h"
 #include "svc_compass.h"
 #include "svc_dist.h"
 

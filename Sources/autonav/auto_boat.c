@@ -54,7 +54,7 @@ static void boat_control(int16_t speed1, int16_t speed2, int16_t dir)
 
 static void boat_feed(int16_t speed1, int16_t speed2)
 {
-	feed_set_speed(speed1,speed2);
+	feed_set_speed(speed1);
 	LOG_HMI("feed: speed1=%d, speed2=%d\r\n", speed1, speed2);
 }
 

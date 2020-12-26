@@ -6,8 +6,8 @@
 #include "bsp.h"
 #include "hmi.h"
 #include "sail.h"
-#include "gps.h"
-#include "svc_gps.h"
+#include "gnss.h"
+#include "svc_gnss.h"
 
 #include "auto_boat_cruise.h"
 #include "auto_pid.h"
@@ -158,10 +158,10 @@ void cruise_bind(struct cruise_handler *handler)
 }
 
 //获取设置当前位置经纬度坐标和速度
-void auto_get_gpsspeed(struct gps *gps)
+void auto_get_gpsspeed(struct gnss *gnss)
 {
 	mutex_lock(cruise_mutex);
-	currentspeed = gps->speed;
+	currentspeed = gnss->speed;
 	mutex_unlock(cruise_mutex);	
 	event_post(cruise_event);
 	static int div;

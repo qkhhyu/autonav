@@ -7,7 +7,7 @@
 #include "bsp.h"
 #include "hmi.h"
 #include "sail.h"
-#include "gps.h"
+#include "gnss.h"
 
 #include "auto_boat_cruise.h"
 #include "auto_pid.h"
