@@ -542,7 +542,7 @@ static void location_thread(void *arg)
 						{
 							azimuth_difference = 360-azimuth_difference;
 						}
-						if(azimuth_difference>=90)
+						if(azimuth_difference>=90)//船身如果过了该点正切线（还是法线？）则认为已经过了该点，防止打转情况发生
 						{
 							break;
 						}
@@ -572,7 +572,7 @@ static void location_thread(void *arg)
 		//到达第一个轨迹点之后开始抛料
 		if(location_contex.feed_switch == 1)
 		{
-			cruise_feed_control(20,20);
+			cruise_feed_control(60,60);
 			location_contex.feed_switch = 2;
 		}
 		if(location_contex.auto_sail == 1)
