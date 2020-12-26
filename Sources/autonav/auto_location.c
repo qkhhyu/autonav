@@ -258,6 +258,7 @@ static void location_thread(void *arg)
 	LOG("[AUTO:LOCATION]init\r\n");
 	while(1)
 	{
+		//自巡航开关
 		if(!location_thread_switch)
 		{
 			location_contex.feed_switch = 0;
@@ -396,30 +397,30 @@ static void location_thread(void *arg)
 				else
 				{
 					if(pretreatment_judgment == 1)
-				{
-					#ifndef program_slow_down
-					//不减速过弯，直接提前3m进行转弯
-					if(distance<3.0f)
 					{
-						break;
-					}
-					#else
-					if(distance<3.0f)
-					{
-						break;
-					}
-					else if(distance<4.5f)
-					{
-						set_boat_speed = CURVE_SPEED;
-					}
-					else
-					{
-						set_boat_speed = BOAT_SPEED;
-					}
-					#endif
-					
+						#ifndef program_slow_down
+						//不减速过弯，直接提前3m进行转弯
+						if(distance<3.0f)
+						{
+							break;
+						}
+						#else
+						if(distance<3.0f)
+						{
+							break;
+						}
+						else if(distance<4.5f)
+						{
+							set_boat_speed = CURVE_SPEED;
+						}
+						else
+						{
+							set_boat_speed = BOAT_SPEED;
+						}
+						#endif
+						
 
-				}
+					}
 				else
 				{
 					set_boat_speed = BOAT_SPEED;
@@ -512,34 +513,41 @@ static void location_thread(void *arg)
 			{
 				if(distance<3.0f)
 				{
+					//这里可能需要再加一层判断，上次去厦门，这里速度太慢的时候一直不满足，就导致了打转的现象发生
 					if((distance-lastdistance) > 0.07f)//远离目标点则认为已经经过该点
 					{
 						break;
 					}
+				}
+				if(lastdistance<3.0f&&distance>3.0)//防止速度过慢零界点来回跳转，会造成打转的现象！
+				{
+					break;
 				}
 				//距离小于1米时也认为已经到达目标点
 				if(distance <1.0)
 				{
 					break;
 				}
-				//巡航途中，如果有反向航行趋势，要即时调整，避免反向航线
-				if(location_contex.auto_sail ==2)
+				if(distance<6.0f)
 				{
-//					azimuth_difference = ((360-heading)+azimuth_last)%360;
-//					if(azimuth_difference<=180)
-//					{
-//						azimuth_difference = azimuth_difference;
-//					}
-//					else
-//					{
-//						azimuth_difference = 360-azimuth_difference;
-//					}
-//					if(azimuth_difference>=90)
-//					{
-//						break;
-//					}
-				}
-				
+					//巡航途中，如果有反向航行趋势，要即时调整，避免反向航线
+					if(location_contex.auto_sail ==2)
+					{
+						azimuth_difference = ((360-heading)+azimuth_last)%360;
+						if(azimuth_difference<=180)
+						{
+							azimuth_difference = azimuth_difference;
+						}
+						else
+						{
+							azimuth_difference = 360-azimuth_difference;
+						}
+						if(azimuth_difference>=90)
+						{
+							break;
+						}
+					}
+				}	
 			}
 
 			lastdistance = distance;
