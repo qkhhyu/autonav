@@ -1,50 +1,76 @@
-#ifndef __AUTO_PID_H
-#define __AUTO_PID_H
+#ifndef __AUTO_PID_H__
+#define __AUTO_PID_H__
 
 
-typedef struct {
-    float scope;    //输出限幅量
-    float setaim;  //目标输出量
-    float real_out; //反馈输出量
-    float Kp;   //比例系数
-    float Ki;   //积分系数
-    float Kd;   //微分系数
-    float integral;   //误差积分
-    float err;   //当前误差
-    float err_last;   //上一次误差
-}PID_Type;
 
-float pid_pos(PID_Type* pid);
-void pid_init(PID_Type* pid);
+/* Includes ------------------------------------------------------------------*/
+#include <math.h>
 
 
-struct pid_add{
-	float scope;    //输出限幅量
-    float SetSpeed;            //定义设定值
-    float ActualSpeed;        //定义实际值
-	float Lastout;
-    float err;                //定义偏差值
-    float err_next;            //定义上一个偏差值
-    float err_last;            //定义最上前的偏差值
-    float Kp,Ki,Kd;            //定义比例、积分、微分系数
+
+/*参数初始化--------------------------------------------------------------*/
+
+enum
+{
+	LLAST	= 0,//上上次
+	LAST 	= 1,//上次
+	NOW 	= 2,//本次
+
+	Position_Pid,//位置式
+	Delta_Pid,//增量式
+	Vi_Position_Pid,//变积分位置试
+
+	Direction_pid,
+	Speed_pid,
 };
 
-struct pid_changei{
-	float scope;    //输出限幅量
-    float SetSpeed;            //定义设定值
-    float ActualSpeed;        //定义实际值
-    float err;                //定义偏差值
-    float err_last;            //定义上一个偏差值
-    float Kp,Ki,Kd;            //定义比例、积分、微分系数
-    float voltage;             //定义控制执行器的变量
-    float integral;            //定义积分值
+
+
+struct pid_t
+{
+  float Kp;
+  float Ki;
+  float Kd;
+
+  float set;				//目标值
+  float get;				//测量值
+  float err[3];			//误差值,包含NOW， LAST， LLAST上上次
+
+  float integra_index;  //变积分系数
+    
+  float pout;				//p输出
+  float iout;				//i输出
+  float dout;				//d输出    
+  float out;			  //pid输出
+
+
+  float pos_out;				//本次位置式输出
+  float last_pos_out;			//上次输出
+  float delta_out;				//本次增量值
+  float last_delta_out;			//本次增量式输出 = last_delta_out + delta_u
+
+  float max_err;
+
+  uint32_t pid_object;    //控制对象
+  uint32_t pid_mode;      //计算公式
+  uint32_t MaxOutput;				//输出限幅
+  uint32_t IntegralLimit;		//积分限幅
+       
+       
+  void (*f_param_init)(struct pid_t *pid,  //PID参数初始化
+					uint32_t pid_object,
+                    uint32_t pid_mode,
+                    uint32_t maxOutput,
+                    uint32_t integralLimit,
+                    float p,
+                    float i,
+                    float d);
+  void (*f_pid_reset)(struct pid_t *pid, float p, float i, float d);		//pid三个参数修改
+
 };
 
-void PID_init1(struct pid_add *pid);
-float PID_realize(struct pid_add *pid,int mode);
-
-void PID_init2(struct pid_changei *pid);
-float PID_realize_changei(struct pid_changei *pid);
-
-
+//函数声明部分
+void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp, float 	ki, float kd);
+float pid_calc(struct pid_t* pid,float get, float set);
 #endif
+

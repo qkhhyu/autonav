@@ -8,6 +8,7 @@
 #include "sail.h"
 #include "gnss.h"
 #include "svc_gnss.h"
+#include "fifo.h"
 
 #include "auto_boat_cruise.h"
 #include "auto_pid.h"
@@ -19,12 +20,11 @@ struct cruise_handler cruise_handler;
 event_t  cruise_event;
 mutex_t cruise_mutex;
 
-PID_Type pid_speed;
 long double currentspeed = 0;
-int motor_speed = 300;
+int motor_speed = 500;
 double set_boat_speed = BOAT_SPEED;
 
-struct pid_add pid_addspeed;
+struct pid_t pid_speed;
 
 //巡航控制，根据方位角
 void cruise_gps_control(long double dist,int azimuth,int heading)
@@ -90,6 +90,14 @@ void cruise_gps_control_pid(long double dist,int azimuth,int heading,int ruddera
 	mutex_unlock(cruise_mutex);
 }
 
+void curise_general_control(int16_t speed1, int16_t speed2, int16_t dir)
+{
+	mutex_lock(cruise_mutex);
+	cruise_handler.control(speed1,speed2,dir);
+	mutex_unlock(cruise_mutex);
+}
+
+
 void curise_gps_control_pid_1(long double dist,int azimuth,int heading,int rudderangle)
 {
 	int azimuth_difference = 0;
@@ -138,13 +146,21 @@ void cruise_feed_control(int16_t speed1,int16_t speed2)
 
 int cruise_dist_control(struct dist *dist)
 {
-	if(dist->front==0 || dist->right1==0 || dist->right2==0)
+	if(dist->front==0 && dist->right1==0 && dist->back==0)
 	{
 		return 0;
 	}
-	if(dist->front<3500 || dist->right1<2500 || dist->right2<2500)
+	if(dist->front<2000 || dist->right1<1500 || dist->back<1500)
+	{
+		cruise_handler.turn_left(-SLOW_SPEED,FAST_SPEED,150);
+	}
+	if(dist->front<2500 || dist->right1<2000 || dist->back<2000)
 	{
 		cruise_handler.turn_left(-SLOW_SPEED,FAST_SPEED,90);
+	}
+	if(dist->front<3000 || dist->right1<2500 || dist->back<2500)
+	{
+		cruise_handler.turn_left(-SLOW_SPEED,FAST_SPEED,60);
 	}
 	return 1;
 }
@@ -157,33 +173,58 @@ void cruise_bind(struct cruise_handler *handler)
 	}
 }
 
+#define SPEEDFIFOSIZE	10
+float speedtemp[SPEEDFIFOSIZE];
+char speed_index = 0;
+float speed_sum = 0.0f;
+
+//速度均值滤波
+float speed_filter(float speed)
+{
+//	char count = 0;
+	float fir = 0.00f;
+	
+	fir = speedtemp[speed_index];
+	speedtemp[speed_index++]  = speed;
+	if(speed_index==SPEEDFIFOSIZE)
+	{
+		speed_index = 0;//先进先出
+	}
+	
+	speed_sum = speed_sum+speed;
+	speed_sum = speed_sum-fir;
+//	for(count = 0;count<SPEEDFIFOSIZE;count++)
+//	{
+//		sum += speedtemp[count];
+//	}
+	return (speed_sum/SPEEDFIFOSIZE);
+}
+
 //获取设置当前位置经纬度坐标和速度
 void auto_get_gpsspeed(struct gnss *gnss)
 {
 	mutex_lock(cruise_mutex);
 	currentspeed = gnss->speed;
+	currentspeed = currentspeed * 1.852f;//（海里/小时）转换成（千米/小时）
+	
+	currentspeed = speed_filter(currentspeed);
 	mutex_unlock(cruise_mutex);	
-	event_post(cruise_event);
+	
+//	event_post(cruise_event);
 	static int div;
 	if(++div > 10)
 	{
+		event_post(cruise_event);
 		div = 0;
-		LOG_HMI("speed=%f",currentspeed);
+		LOG_HMI("speed=%fkm/h",currentspeed);
 	}
 	
 }
 
 void auto_cruise_pid_init(void)
 {
-	PID_init1(&pid_addspeed);
-//	pid_init(&pid_speed);
-//	pid_speed.Kp = 5.0f;
-//	pid_speed.Ki = 0.0f;
-//	pid_speed.Kd = 0.3f;
-	pid_addspeed.Kp = appvar.pid_config[1][0];
-	pid_addspeed.Ki = appvar.pid_config[1][1];
-	pid_addspeed.Kd = appvar.pid_config[1][2];
-	pid_addspeed.scope = 1000;
+	PID_struct_init(&pid_speed,Speed_pid,Vi_Position_Pid,1000,1000,appvar.pid_config[1][0],appvar.pid_config[1][1],appvar.pid_config[1][2]);
+	pid_speed.f_pid_reset(&pid_speed,appvar.pid_config[1][0],appvar.pid_config[1][1],appvar.pid_config[1][2]);
 }
 
 //船调整线程，调整航行速度
@@ -194,6 +235,7 @@ static void auto_cruise_thread(void *arg)
 	
 	double rout = 0;
 	
+	
 	appvar.pid_config[1][0] = 3.5f;
 	appvar.pid_config[1][1] = 0.035f;
 	appvar.pid_config[1][2] = 0;
@@ -202,25 +244,22 @@ static void auto_cruise_thread(void *arg)
 	
 	while(1)
 	{
-		event_timed_wait(cruise_event, 100);
-//		pid_speed.setaim = 1.1f*100;
-		pid_addspeed.SetSpeed = set_boat_speed*100.0f;
+		event_timed_wait(cruise_event, 1100);
 		mutex_lock(cruise_mutex);
-//		pid_speed.real_out = currentspeed*100.0f;
-		pid_addspeed.ActualSpeed = currentspeed*100.0f;
+
+		pid_speed.f_pid_reset(&pid_speed,appvar.pid_config[1][0],appvar.pid_config[1][1],appvar.pid_config[1][2]);
+		rout = pid_calc(&pid_speed,currentspeed*100.0f, set_boat_speed*100.0f);
 		mutex_unlock(cruise_mutex);	
-//		rout = pid_pos(&pid_speed);
-		rout = PID_realize(&pid_addspeed,1);
 		//LOG_HMI("rout=%f",rout);
 		mutex_lock(cruise_mutex);		
 		motor_speed = (int)rout;
 		if(set_boat_speed == BOAT_SPEED)
 		{
-			motor_speed = 650;
+			motor_speed = 1000;
 		}
 		else
 		{
-			motor_speed = 650;
+			motor_speed = 1000;
 		}
 		
 //		motor_speed = appvar.dst_course;

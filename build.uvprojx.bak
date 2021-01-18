@@ -137,7 +137,7 @@
             <DriverSelection>4096</DriverSelection>
           </Flash1>
           <bUseTDR>1</bUseTDR>
-          <Flash2>UL2CM3.dll</Flash2>
+          <Flash2>BIN\UL2CM3.DLL</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
@@ -492,11 +492,6 @@
               <FileType>1</FileType>
               <FilePath>.\Sources\service\svc_gnss.c</FilePath>
             </File>
-            <File>
-              <FileName>svc_wqdet.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\service\svc_wqdet.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
@@ -586,11 +581,6 @@
               <FileName>gnss.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Sources\module\gnss.c</FilePath>
-            </File>
-            <File>
-              <FileName>water.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\Sources\module\water.c</FilePath>
             </File>
           </Files>
         </Group>

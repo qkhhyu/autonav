@@ -12,165 +12,145 @@
 #include "auto_boat_cruise.h"
 #include "auto_pid.h"
 
+
 #define max(a,b)   (a>b? a:b)
 #define min(a,b)   (a<b? a:b)
 #define limiter(x,a,b)  (min(max(x,a),b))
 
-//--------------------------------------------------------------------------------------------------//
-//位置式PID
-float pid_pos(PID_Type* p)
+/*!
+ *  @brief      pid参数初始化
+ *  @param      mode 模式  maxput 最大输出 Kp Ki Kd  pid参数
+ *  @since      v1.0
+ *  @note       
+ *  Sample usage:      pid_init(pid_t *pid, Delta_Pid, 100,70,2,0.1,1);    //初始化 pid参数 为增量式输出  最大输出值为100 积分限幅为70  P为2 I为0.1 D为1
+ */
+static void pid_init(struct pid_t *pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp,float ki,float kd)
 {
-    float pe, ie, de;
-    float out = 0;
-	float temp = 0;
-	temp = ((int)((360.0-p->setaim)+p->real_out))%360;//计算两个方位角的差值
-	if(temp>180&&temp<=360)
-	{
-		p->err = (360-temp);
-	}
-	else if(temp<=180&&temp>=0)
-	{
-		p->err = -temp;
-	}
-//    p->err = p->setaim - p->real_out;//计算当前误差
+    pid->IntegralLimit = intergral_limit;
+    pid->MaxOutput = maxout;
+    pid->pid_object = object;
+    pid->pid_mode = mode;
+    
+    pid->Kp = kp;
+    pid->Ki = ki;
+    pid->Kd = kd; 
+}
+/*!
+ *  @brief      pid中途调参
+ *  @param      
+ *  @since      v1.0
+ *  @note       
+ *  Sample usage:    pid_reset(&pidsd[1],1,2,3);    //pid调参，电机2更新p为1 i为2  d为3
+ */
 
-    p->integral += p->err;//误差积分
-
-    de = p->err - p->err_last;//误差微分
-
-    pe = p->err;
-    ie = p->integral;
-
-    p->err_last = p->err;
-
-    out = pe * (p->Kp) + ie * (p->Ki) + de * (p->Kd);
-
-    out = limiter(out, -p->scope, p->scope);//输出限幅
-    return out;
+/*中途更改参数设定(调试)------------------------------------------------------------*/
+static void pid_reset(struct pid_t *pid, float kp, float ki, float kd)
+{
+    pid->Kp = kp;
+    pid->Ki = ki;
+    pid->Kd = kd;
 }
 
+/*!
+ *  @brief      pid计算
+ *  @param    get 实际速度   set预期速度
+ *  @since      v1.0
+ *  @note       
+ */
 
-void pid_init(PID_Type* pid)
+float pid_calc(struct pid_t* pid,float get, float set)
 {
-    memset(pid, 0, sizeof(PID_Type));
-}
-//--------------------------------------------------------------------------------------------------//
-//增量式PID
-void PID_init1(struct pid_add *pid)
-{
-    pid->SetSpeed=0.0f;
-    pid->ActualSpeed=0.0f;
-	pid->Lastout = 0.0f;
-    pid->err=0.0f;
-    pid->err_last=0.0f;
-    pid->err_next=0.0f;
-    pid->Kp=0.0f;
-    pid->Ki=0.0f;
-    pid->Kd=0.0f;
-}
+    pid->get = get;
+    pid->set = set;
+    if(pid->pid_object == Direction_pid)
+    {
+        pid->err[NOW] = ((int)((360.0 - pid->set) + pid->get)) % 360;//计算两个方位角的差值
+        if(pid->err[NOW]>180.0 && pid->err[NOW]<=360.0)
+        {
+           pid->err[NOW] = 360.0 - pid->err[NOW]; 
+        }
+        else
+        {
+            pid->err[NOW] = -pid->err[NOW];
+        }  
+    }
+    if(pid->pid_object == Speed_pid)
+    {
+        pid->err[NOW] = pid->set - pid->get;	//set - get
+    }
+    
 
-float PID_realize(struct pid_add *pid,int mode)
-{
-	float temp = 0;
-//    pid->SetSpeed=speed;
-	if(mode == 0)
-	{
-		temp = ((int)((360.0-pid->SetSpeed)+pid->ActualSpeed))%360;//计算两个方位角的差值
-		if(temp>180&&temp<=360)
-		{
-			pid->err = (360-temp);
-		}
-		else if(temp<=180&&temp>=0)
-		{
-			pid->err = -temp;
-		}
-	}
-	else
-	{
-		pid->err=pid->SetSpeed-pid->ActualSpeed;
-	}
-	
-//    pid->err=pid->SetSpeed-pid->ActualSpeed;
-    float incrementSpeed=pid->Kp*(pid->err-pid->err_next)+pid->Ki*pid->err+pid->Kd*(pid->err-2*pid->err_next+pid->err_last);
-    //pid->ActualSpeed+=incrementSpeed;
-    pid->err_last=pid->err_next;
-    pid->err_next=pid->err;
-	if(mode == 0)
-	{
-//		 incrementSpeed = incrementSpeed+pid->err;
-//		 incrementSpeed = limiter(incrementSpeed, -pid->scope, pid->scope);//输出限幅
-//		 return incrementSpeed;
-		pid->Lastout = pid->Lastout+incrementSpeed;
-		pid->Lastout = limiter(pid->Lastout, -pid->scope, pid->scope);//输出限幅
-		return pid->Lastout;
-	}
-	else
-	{
-//		pid->ActualSpeed = (pid->ActualSpeed)+500;
-//		pid->ActualSpeed = limiter(pid->ActualSpeed, -pid->scope, pid->scope);//输出限幅
-		pid->Lastout = pid->Lastout+incrementSpeed;
-		pid->Lastout = limiter(pid->Lastout, -pid->scope, pid->scope);//输出限幅
-		return pid->Lastout;
-	}
-	
+    if(pid->pid_mode == Position_Pid) //位置式pid
+    {
+        pid->pout = pid->Kp * pid->err[NOW];
+        pid->iout += pid->Ki * pid->err[NOW];
+        pid->dout = pid->Kd * (pid->err[NOW] - pid->err[LAST] );
+        pid->iout = limiter(pid->iout,-pid->IntegralLimit,pid->IntegralLimit);
+        pid->pos_out = pid->pout + pid->iout + pid->dout;
 
-	
-}
-//----------------------------------------------------------------------------------------------------------------//
-//变积分的PID控制算法
+        pid->pos_out = limiter(pid->pos_out,-pid->MaxOutput,pid->MaxOutput);
+        pid->last_pos_out = pid->pos_out;	//update last time 
+    }
+    else if(pid->pid_mode == Delta_Pid)//增量式P
+    {
+        pid->pout = pid->Kp * (pid->err[NOW] - pid->err[LAST]);
+        pid->iout = pid->Ki * pid->err[NOW];
+        pid->dout = pid->Kd * (pid->err[NOW] - 2*pid->err[LAST] + pid->err[LLAST]);
+        
+        pid->iout = limiter(pid->iout,-pid->IntegralLimit,pid->IntegralLimit);
+        pid->out = pid->pout + pid->iout + pid->dout;
+        pid->delta_out = pid->last_delta_out + pid->out;
 
+        pid->delta_out = limiter(pid->delta_out,-pid->MaxOutput,pid->MaxOutput);
+        pid->last_delta_out = pid->delta_out;	//update last time
+    }
+    else if(pid->pid_mode == Vi_Position_Pid)
+    {
+        if(pid->pid_object == Direction_pid)
+        {
+            if(fabs(pid->err[NOW]) > 120)
+            {
+                pid->integra_index = 0.0;
+            }
+            else if(fabs(pid->err[NOW])<90)
+            {
+                pid->integra_index = 1.0;
+            }
+            else
+            {
+                pid->integra_index = (120-fabs(pid->err[NOW])) /15;
+            }
+        }
 
-void PID_init2(struct pid_changei *pid)
-{
-    pid->SetSpeed=0.0;
-    pid->ActualSpeed=0.0;
-    pid->err=0.0;
-    pid->err_last=0.0;
-	pid->voltage = 0;
-	pid->integral = 0;
-    pid->Kp=0.0;
-    pid->Ki=0.0;
-    pid->Kd=0.0;
-}
+        pid->pout = pid->Kp * pid->err[NOW];
+        pid->iout += pid->integra_index * pid->Ki *pid->err[NOW];
+        pid->dout = pid->Kd * (pid->err[NOW] - pid->err[LAST]);
+        pid->pos_out =  pid->pout + pid->iout + pid->dout;
 
-float PID_realize_changei(struct pid_changei *pid)
-{
-	float temp = 0;
-	float index = 0;
-//	pid->SetSpeed=speed;
-//	pid->err=pid->SetSpeed-pid->ActualSpeed;
-	temp = ((int)((360.0-pid->SetSpeed)+pid->ActualSpeed))%360;//计算两个方位角的差值
-	if(temp>180&&temp<=360)
-	{
-		pid->err = (360-temp);
-	}
-	else if(temp<=180&&temp>=0)
-	{
-		pid->err = -temp;
-	}
+        pid->pos_out = limiter(pid->pos_out,-pid->MaxOutput,pid->MaxOutput);
+        pid->last_pos_out = pid->pos_out;	//update last time 
+    }
+    
+    pid->err[LLAST] = pid->err[LAST];
+    pid->err[LAST] = pid->err[NOW];
 
-	//变积分过程
-	if(fabs(pid->err)>120)
-	{
-		index=0.0;
-	}
-	else if(fabs(pid->err)<90)
-	{
-		index=1.0;
-		pid->integral+=pid->err;
-	}
-	else
-	{
-		index=(120-fabs(pid->err))/15;
-		pid->integral+=pid->err;
-	}
-	pid->voltage=pid->Kp*pid->err+index*pid->Ki*pid->integral+pid->Kd*(pid->err-pid->err_last);
-
-	pid->err_last=pid->err;
-	pid->ActualSpeed=pid->voltage*1.0;
-	pid->ActualSpeed = limiter(pid->ActualSpeed, -pid->scope, pid->scope);//输出限幅
-	return pid->ActualSpeed;
+    return ((pid->pid_mode==Delta_Pid) ? pid->delta_out : pid->pos_out);
 }
 
-
+/*!
+ *  @brief      pid参数初始化
+ *  @param      mode 模式  maxput 最大输出 Kp Ki Kd  pid参数
+ *  @since      v1.0
+ *  @note       
+ *  Sample usage:      pid_init(pid_t *pid, Delta_Pid, 100,70,2,0.1,1);    //初始化 pid参数 为增量式输出  最大输出值为100 积分限幅为70  P为2 I为0.1  D为1
+ */
+void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp, float 	ki, float kd)
+{
+    /*init function pointer*/
+    pid->f_param_init = pid_init;
+    pid->f_pid_reset = pid_reset;
+		
+    /*init pid param */
+    pid->f_param_init(pid,object,mode,maxout,intergral_limit,kp,ki,kd);
+}
 
