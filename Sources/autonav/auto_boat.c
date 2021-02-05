@@ -38,12 +38,12 @@ static void boat_straight(int16_t speed1,int16_t speed2)
 
 static void boat_control(int16_t speed1, int16_t speed2, int16_t dir)
 {
-	if(dir<=0)
+	if(dir<=0)//左转
 	{
 		speed1 = speed2+(dir*10);
 		speed1 = (speed1<(-1000))?-1000:speed1;
 	}
-	if(dir>0)
+	if(dir>0)//右转
 	{
 		speed2 = speed1-(dir*10);
 		speed2 = (speed2<(-1000))?-1000:speed2;

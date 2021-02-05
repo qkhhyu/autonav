@@ -26,7 +26,7 @@ struct cruise_handler
 
 
 void cruise_gps_control(long double dist,int azimuth,int heading);
-void cruise_gps_control_pid(long double dist,int azimuth,int heading,int rudderangle);
+void cruise_gps_control_pid(int16_t speed1,int16_t speed2,int rudderangle);
 void curise_general_control(int16_t speed1, int16_t speed2, int16_t dir);
 void curise_gps_control_pid_1(long double dist,int azimuth,int heading,int rudderangle);
 void cruise_feed_control(int16_t speed1,int16_t speed2);

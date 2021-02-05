@@ -83,10 +83,10 @@ void cruise_gps_control(long double dist,int azimuth,int heading)
 		
 }
 
-void cruise_gps_control_pid(long double dist,int azimuth,int heading,int rudderangle)
+void cruise_gps_control_pid(int16_t speed1,int16_t speed2,int rudderangle)
 {
 	mutex_lock(cruise_mutex);
-	cruise_handler.control(motor_speed,motor_speed,rudderangle);
+	cruise_handler.control(speed1,speed2,rudderangle);
 	mutex_unlock(cruise_mutex);
 }
 
