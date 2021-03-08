@@ -9,6 +9,7 @@
 #include "gnss.h"
 #include "svc_gnss.h"
 #include "fifo.h"
+#include "svc_sail.h"
 
 #include "auto_boat_cruise.h"
 #include "auto_pid.h"
@@ -21,7 +22,7 @@ event_t  cruise_event;
 mutex_t cruise_mutex;
 
 long double currentspeed = 0;
-int motor_speed = 500;
+int motor_speed = 100;
 double set_boat_speed = BOAT_SPEED;
 
 struct pid_t pid_speed;
@@ -86,7 +87,10 @@ void cruise_gps_control(long double dist,int azimuth,int heading)
 void cruise_gps_control_pid(int16_t speed1,int16_t speed2,int rudderangle)
 {
 	mutex_lock(cruise_mutex);
-	cruise_handler.control(speed1,speed2,rudderangle);
+	// cruise_handler.control(speed1,speed2,rudderangle);
+	svc_sail_set_speed(speed1);
+	svc_sail_set_dir(rudderangle);
+
 	mutex_unlock(cruise_mutex);
 }
 
@@ -255,11 +259,11 @@ static void auto_cruise_thread(void *arg)
 		motor_speed = (int)rout;
 		if(set_boat_speed == BOAT_SPEED)
 		{
-			motor_speed = 1000;
+			motor_speed = 100;
 		}
 		else
 		{
-			motor_speed = 1000;
+			motor_speed = 70;
 		}
 		
 //		motor_speed = appvar.dst_course;

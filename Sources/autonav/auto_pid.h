@@ -45,15 +45,15 @@ struct pid_t
 
   uint32_t pid_object;    			//控制对象
   uint32_t pid_mode;      			//计算公式
-  uint32_t MaxOutput;				//输出限幅
-  uint32_t IntegralLimit;			//积分限幅
+  float MaxOutput;				//输出限幅
+  float IntegralLimit;			//积分限幅
       
       
   void (*f_param_init)(struct pid_t *pid,                               	//PID参数初始化
         uint32_t pid_object,
                   uint32_t pid_mode,
-                  uint32_t maxOutput,
-                  uint32_t integralLimit,
+                  float maxOutput,
+                  float integralLimit,
                   float p,
                   float i,
                   float d);
@@ -61,7 +61,7 @@ struct pid_t
 
 };
 
-void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp, float 	ki, float kd);
+void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,float maxout,float intergral_limit,float kp, float 	ki, float kd);
 float pid_calc(struct pid_t* pid,float get, float set);
 #endif
 

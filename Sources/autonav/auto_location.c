@@ -127,12 +127,22 @@ static double auto_cal_area(double side_a,double side_b,double side_c)
 	}
 	else
 	{
-
+		LOG("[AUTO:LOCATION]calc area error!\r\n");
 	}
 	return area;
-
 }
 
+//利用三角形面积计算三角形某一底边的高
+//base_side：底边长
+static double auto_cal_height(double base_side,double area)
+{
+	double height = 0.0;
+	height = area*2.0/base_side;
+	return height;
+}
+
+
+//两个坐标点之间的距离计算
 static double auto_cal_distance(long double start_latitude,long double start_longitude,long double via_latitude,long double via_longitude)
 {
 
@@ -143,6 +153,7 @@ static double auto_cal_distance(long double start_latitude,long double start_lon
 	return (double)L;
 }
 
+//两个坐标点指向的方位角，这是个向量，注意指向，也就是起始点和目标点的顺序
 static int auto_cal_azimuth(long double start_latitude,long double start_longitude,long double via_latitude,long double via_longitude)
 {
 	long double angle_A = 0;
@@ -219,7 +230,7 @@ static void auto_location_get_heading(int heading)
 	if(++div > 20)
 	{
 		div = 0;
-		LOG_HMI("[SVC:COMP]heading=%d\r\n", heading);
+		LOG_HMI("heading=%d\r\n", heading);
 	}
 }
 
@@ -374,15 +385,23 @@ static void auto_calc_corner(struct track_index *track_index,struct corner_conte
 		if(dist_next<4.0f)
 		{
 			track_index->current_track_index++;
+			
 			if(track_index->current_track_index>=track_index->tracksnum)
 			{
 				track_index->current_track_index = 0;
 			}
+			current_track_index = track_index->current_track_index;
+			//track_index->last_track_index = (current_track_index+track_index->tracksnum-1)%track_index->tracksnum;
+			track_index->next_track_index = (current_track_index+1)%track_index->tracksnum;
+			
+			
+			next_track_index = track_index->next_track_index;
+			auto_location_set_destination(tracks[track_index->current_track_index].latitude,tracks[track_index->current_track_index].longitude);
 			//计算上一个点跟当前目标点的距离和方位角
 			//这里上一个点不变
 			auto_algo_gps(tracks[last_track_index].latitude,tracks[last_track_index].longitude,tracks[current_track_index].latitude,tracks[current_track_index].longitude,&dist_last,&azimuth_last);
 			//计算下一个点跟当前目标点的距离和方位角
-			next_track_index = (track_index->current_track_index+1)%track_index->tracksnum;
+//			next_track_index = (track_index->current_track_index+1)%track_index->tracksnum;
 			auto_algo_gps(tracks[current_track_index].latitude,tracks[current_track_index].longitude,tracks[next_track_index].latitude,tracks[next_track_index].longitude,&dist_next,&azimuth_next);
 			//计算下一个点转弯的角度
 			corner = ((360-azimuth_last)+azimuth_next)%360;
@@ -417,47 +436,171 @@ static int auto_change_track(uint8_t flag,struct calc_contex calc_contex,int hea
 	//判断距离是否开始远离目标点，远离则表示已经经过该点
 	if(corner_contex.corner_action == 1)//要转大弯，提前结束该点循迹
 	{
+		static int count_corner_add = 0;
 		if(calc_contex.distance<4.0f)
 		{
-			if((calc_contex.distance-calc_contex.lastdistance) > 0.07f)//远离目标点则认为已经经过该点
+			if((calc_contex.distance-calc_contex.lastdistance) > 0.0f)//远离目标点则认为已经经过该点
 			{
+				count_corner_add++;
+				if(count_corner_add>=3)
+				{
+					LOG_HMI("count_corner_add=%d\r\n", count_corner_add);
+					return 1;
+				}
+				
+			}
+			else
+			{
+				count_corner_add = 0;				
+			}
+		}
+		else
+		{
+			count_corner_add = 0;
+		}
+		static int count_corner_arrival = 0;
+		if(calc_contex.distance<2.0)
+		{
+			count_corner_arrival++;
+			if(count_corner_arrival>=3)
+			{
+				LOG_HMI("count_corner_arrival=%d\r\n", count_corner_arrival);
 				return 1;
 			}
 		}
-		if(calc_contex.distance<2.0)
+		else
 		{
-			return 1;
+			count_corner_arrival = 0;
 		}
+		static int count_corner_dist = 0;
+		if(calc_contex.distance<6.0f)
+		{
+			if(calc_contex.distance_away>corner_contex.dist_last)
+			{
+				count_corner_dist++;
+				if(count_corner_dist>=3)
+				{
+					LOG_HMI("count_corner_dist=%d\r\n", count_corner_dist);
+					return 1;
+				}	
+			}
+			else
+			{
+				count_corner_dist = 0;
+			}
+		}
+		else
+		{
+			count_corner_dist = 0;
+		}
+//		static int count_corner_general = 0;
+//		if((calc_contex.distance-calc_contex.lastdistance) > 0.0f)
+//		{
+//			count_corner_general++;
+//			if(count_corner_general>=10)
+//			{
+//				LOG_HMI("count_corner_general=%d\r\n", count_corner_general);
+//				return 1;
+//			}
+//		}
+//		else
+//		{
+//			count_corner_general = 0;
+//		}	
 	}
 	else//不需要转大弯，则不需要提前处理
 	{
+		static int count_add = 0;
 		if(calc_contex.distance<3.0f)
 		{
 			//这里可能需要再加一层判断，上次去厦门，这里速度太慢的时候一直不满足，就导致了打转的现象发生
 			if((calc_contex.distance-calc_contex.lastdistance) > 0.07f)//远离目标点则认为已经经过该点
 			{
-				return 1;
+				count_add++;
+				if(count_add>=4)
+				{
+					LOG_HMI("count_add=%d\r\n", count_add);
+					return 1;
+				}
+				
 			}
-		}
-//		if(flag != 1)
-		{
-			if(calc_contex.lastdistance<3.0f&&calc_contex.distance>3.0)//防止速度过慢零界点来回跳转，会造成打转的现象！
+			else
 			{
-				return 1;
+				count_add = 0;
 			}
 		}
+		else
+		{
+			count_add = 0;
+		}
+
+//		if(flag != 1)
+		// {
+		// 	static int count_out = 0;
+		// 	if(calc_contex.lastdistance<3.0f&&calc_contex.distance>3.0)//防止速度过慢零界点来回跳转，会造成打转的现象！
+		// 	{
+		// 		count_out++;
+		// 		if(count_out>=3)
+		// 		{
+		// 			return 1;
+		// 		}
+				
+		// 	}
+		// 	else
+		// 	{
+		// 		count_out = 0;
+		// 	}
+		// }
 		//距离小于1米时也认为已经到达目标点
+		static int count_arrival = 0;
 		if(calc_contex.distance <1.0)
 		{
-			return 1;
+			count_arrival++;
+			if(count_arrival>=2)
+			{
+				LOG_HMI("count_arrival=%d\r\n", count_arrival);
+				return 1;
+			}	
 		}
-		if(calc_contex.distance<6.0f)
+		else
+		{
+			count_arrival = 0;
+		}
+		static int count_dist = 0;
+		if(calc_contex.distance<10.0f)
 		{
 			if(calc_contex.distance_away>corner_contex.dist_last)
 			{
-				return 1;
+				count_dist++;
+				if(count_dist>=3)
+				{
+					LOG_HMI("count_dist=%d\r\n", count_dist);
+					return 1;
+				}	
 			}
-		}	
+			else
+			{
+				count_dist = 0;
+			}
+		}
+		else
+		{
+			count_dist = 0;
+		}
+//		static int count_general = 0;
+//		if((calc_contex.distance-calc_contex.lastdistance) > 0.0f)
+//		{
+//			count_general++;
+//			if(count_general>=10)
+//			{
+//				LOG_HMI("count_general=%d\r\n", count_general);
+//				return 1;
+//			}
+//		}
+//		else
+//		{
+//			count_general = 0;
+//		}		
 	}
 	return 0;
 }
@@ -610,7 +753,7 @@ static void auto_parked(long double latitude,long double longitude,struct calc_c
 	
 }
 
-//自动循迹航行
+//自动循点航行
 static void auto_track_sailing(struct calc_contex *calc_contex,struct track_index *track_index,struct corner_contex *corner_contex,struct pid_t *pid)
 {
 	int azimuth = 0;
@@ -620,7 +763,7 @@ static void auto_track_sailing(struct calc_contex *calc_contex,struct track_inde
 
 	//第一次会将最近的点的下一个点设为目标点，后续则偏移
 	auto_location_set_destination(tracks[track_index->current_track_index].latitude,tracks[track_index->current_track_index].longitude);
-	/*------------------------------------------------------------------------------------------------------------------------
+	/*------------------------------------------1------------------------------------------------------------------------------
 	转弯判断 
 	------------------------------------------------------------------------------------------------------------------------*/
 	if(location_contex.auto_sail != 1)
@@ -693,6 +836,7 @@ static void auto_track_sailing(struct calc_contex *calc_contex,struct track_inde
 		calc_contex->distance_away = auto_cal_distance(currentlatitude,currentlongitude,tracks[track_index->last_track_index].latitude,tracks[track_index->last_track_index].longitude);
 		#ifdef program1
 		//过点判断
+		corner_contex->corner_action = 0;
 		if(auto_change_track(location_contex.auto_sail,*calc_contex,heading,*corner_contex)==1)
 		{	
 			break;
@@ -738,6 +882,202 @@ static void auto_track_sailing(struct calc_contex *calc_contex,struct track_inde
 			
 }
 
+static void auto_track_follow(struct calc_contex *calc_contex,struct track_index *track_index,struct corner_contex *corner_contex,struct pid_t *pid)
+{
+	int current_track_index = 0;
+	int last_track_index = 0;
+	int next_track_index = 0;
+	double side_boat2dest = 0.0;	// 船与目标点的距离
+	double side_boat2lastdest = 0.0;	//船与上一次目标点的距离
+	double side_last2dest = 0.0;	//轨迹上一个点与目标点的距离
+	double angle_dest = 0.0;	//	side_boat2dest与side_last2dest的夹角
+	double dist_height = 0.0;	//当前位置与轨迹线的距离
+	double s_area = 0.0;	//三个点之间三角形面积
+	int boat_azimuth = 0; //当前位置与目标点的朝向
+	int track_azimuth = 0;//当前轨迹的朝向
+	int diff_azimuth = 0;	//两个方位角的差值，缓存变量
+	int heading = 0;	//船当前朝向
+	char boat_position = 0;	//船与当前轨迹位置标记
+	float rout = 0;	//pid计算值
+	int max_azimuth = 0;	//可调整最大航向
+	int min_azimuth = 0;	//可调整最小航向
+	int set_azimuth = 0;	//设置目标航向
+	int diff_minmaxazimuth;	//航向调整的范围
+	double add_azimuth = 0.0;	//航向增量
+	
+	LOG("[AUTO:LOCATION]current_track_index=%d\r\n",track_index->current_track_index);
+
+	//第一次会将最近的点设为目标点，后续则偏移
+	auto_location_set_destination(tracks[track_index->current_track_index].latitude,tracks[track_index->current_track_index].longitude);
+	//转弯判断
+	// if(location_contex.auto_sail != 1)
+	{
+		auto_calc_corner(track_index,corner_contex);
+	}
+
+	while(1)
+	{
+		if(!location_thread_switch)
+		{ 
+			break;
+		}
+		event_timed_wait(location_event, 100);//目前GPS是100ms一个数据，要注意超声波数据的有效性
+		current_track_index = track_index->current_track_index;
+		last_track_index = track_index->last_track_index;
+		next_track_index = track_index->next_track_index;
+
+		mutex_lock(location_mutex);
+		//计算距离相关
+		side_boat2dest = auto_cal_distance(currentlatitude,currentlongitude,tracks[current_track_index].latitude,tracks[current_track_index].longitude);
+		side_boat2lastdest = auto_cal_distance(currentlatitude,currentlongitude,tracks[last_track_index].latitude,tracks[last_track_index].longitude);
+		side_last2dest = auto_cal_distance(tracks[last_track_index].latitude,tracks[last_track_index].longitude,tracks[current_track_index].latitude,tracks[current_track_index].longitude);
+		calc_contex->distance = side_boat2dest;
+		//方向相关
+		boat_azimuth = auto_cal_azimuth(currentlatitude,currentlongitude,tracks[current_track_index].latitude,tracks[current_track_index].longitude);
+		track_azimuth = auto_cal_azimuth(tracks[last_track_index].latitude,tracks[last_track_index].longitude,tracks[current_track_index].latitude,tracks[current_track_index].longitude);
+		mutex_unlock(location_mutex);
+		//求面积
+		s_area = auto_cal_area(side_boat2dest,side_boat2lastdest,side_last2dest);
+
+		//计算当前位置与轨迹线的距离
+		dist_height = auto_cal_height(side_last2dest,s_area);
+
+		//求side_boat2dest与side_last2dest的夹角，也就是当前位置与轨迹线的夹角
+		angle_dest = law_of_cosines(side_boat2dest,side_last2dest,side_boat2lastdest);
+
+		//船当前的朝向
+		heading = currentheading;
+
+		static int div = 0;
+		if((div++%10)==0)
+		{
+			//div = 0;
+			LOG_HMI("[LOCATION],L = %.2f,A = %d,\r\n",calc_contex->distance,boat_azimuth);
+			LOG_HMI("[LOCATION],trackindex= %d,\r\n",track_index->current_track_index);
+		}
+		
+		//距离目标点太近，计算的方位角有严重不确定性，暂时先保持这种设置
+		if(side_boat2dest<3.0)
+		{
+			set_azimuth = track_azimuth;
+		}
+		//判断是否偏离航线大于0.5m，如果是，则需要调整船航行靠近轨迹，否则当前航线平行方向直行
+		else if(dist_height>0.5)
+		{
+			//判断船在轨迹的左边还是右边
+			diff_azimuth = (360+boat_azimuth-track_azimuth)%360;
+			if(diff_azimuth<180)
+			{
+				boat_position = 1;	//轨迹左边，需要往右拐弯
+				//由于过点时存在误差，试试这个能不能解决转弯回头的现象
+				if(side_boat2dest>side_last2dest)
+				{
+					//寻点方向
+					set_azimuth = boat_azimuth;
+				}
+				min_azimuth = boat_azimuth;
+				max_azimuth = (track_azimuth+90)%360;
+				diff_minmaxazimuth = (max_azimuth+360-min_azimuth)%360;
+				//Π/2≈1.57
+				add_azimuth = diff_minmaxazimuth * (1-cos((dist_height>(PI/2) ? (PI/2): dist_height)));
+				//这里add_azimuth+0.5是四舍五入
+				set_azimuth = (min_azimuth + (int)(add_azimuth+0.5))%360;
+			}
+			else
+			{
+				boat_position = 2;	//轨迹右边，需要往左边拐弯
+				//由于过点时存在误差，试试这个能不能解决转弯回头的现象
+				if(side_boat2dest>side_last2dest)
+				{
+					set_azimuth = boat_azimuth;
+				}
+				max_azimuth = boat_azimuth;
+				min_azimuth = ((track_azimuth+360)-90)%360;
+				diff_minmaxazimuth = (max_azimuth+360-min_azimuth)%360;
+				add_azimuth = diff_minmaxazimuth * (1-cos((dist_height>(PI/2) ? (PI/2): dist_height)));
+				set_azimuth = (max_azimuth+360-(int)(add_azimuth+0.5))%360;
+			}
+		}
+		else
+		{
+			set_azimuth = track_azimuth;
+		}
+		if(debug_switch == 1)
+		{
+			set_azimuth = appvar.dst_course;
+		} 
+		
+		
+		pid->f_pid_reset(pid,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
+		rout = pid_calc(pid,(float)heading,(float)set_azimuth);//PID计算
+		static int count_log = 0;
+		if((count_log++%10)==0)
+		{
+			LOG_HMI("heading=%d\r\n", heading);
+			LOG_HMI("boat_position=%d\r\n", boat_position);
+			LOG_HMI("current_track_index=%d\r\n", current_track_index);
+			LOG_HMI("last_track_index=%d\r\n", last_track_index);
+			LOG_HMI("next_track_index=%d\r\n", next_track_index);
+			LOG_HMI("boat_azimuth=%d\r\n", boat_azimuth);
+			LOG_HMI("track_azimuth=%d\r\n", track_azimuth);
+			LOG_HMI("max_azimuth=%d\r\n", max_azimuth);
+			LOG_HMI("min_azimuth=%d\r\n", min_azimuth);
+			LOG_HMI("add_azimuth=%f\r\n", add_azimuth);
+
+			LOG_HMI("set_azimuth= %d,\r\n",set_azimuth);
+			LOG_HMI("rout= %f,\r\n",rout);
+		}
+		else
+		{
+			LOG("[AUTO:LOCATION]heading=%d\r\n", heading);
+			LOG("[AUTO:LOCATION]set_azimuth= %d,\r\n",set_azimuth);
+			LOG("[AUTO:LOCATION]rout= %f,\r\n",rout);
+		}
+		
+		//计算值带入推进器控制
+		cruise_gps_control_pid(motor_speed,motor_speed,(int)rout);
+
+		calc_contex->distance_away = auto_cal_distance(currentlatitude,currentlongitude,tracks[track_index->last_track_index].latitude,tracks[track_index->last_track_index].longitude);
+	
+		//过点判断
+		if(auto_change_track(location_contex.auto_sail,*calc_contex,heading,*corner_contex)==1)
+		{	
+			break;
+		}
+
+		calc_contex->lastdistance = calc_contex->distance;
+
+
+	}
+	if(location_contex.feed_switch == 2)
+	{
+//		cruise_feed_control(100,100);
+		location_contex.feed_switch = 3;
+	}
+	//到达第一个轨迹点之后开始抛料
+	if(location_contex.feed_switch == 1)
+	{
+		//cruise_feed_control(100,100);
+		location_contex.feed_switch = 2;
+	}
+
+	if(location_contex.auto_sail == 1)
+	{
+		location_contex.auto_sail =2;
+	}
+	//开始处理下一个点
+	track_index->current_track_index++;
+	if(track_index->current_track_index>=track_index->tracksnum)
+	{
+		track_index->current_track_index = 0;
+	}
+	track_index->last_track_index = (track_index->current_track_index+track_index->tracksnum-1)%track_index->tracksnum;
+	track_index->next_track_index = (track_index->current_track_index+1)%track_index->tracksnum;
+	
+
+}
+
+
 int debug_azimuth = 0;
 static void location_thread(void *arg)
 {
@@ -750,12 +1090,11 @@ static void location_thread(void *arg)
 	
 
 	memset(&location_contex,0,sizeof(struct location_contex));
-
 	struct pid_t pid_dir;
-	appvar.pid_config[0][0] = 25.00;
+	appvar.pid_config[0][0] = 2.00;
 	appvar.pid_config[0][1] = 0.014;
-	appvar.pid_config[0][2] = 90; 
-	PID_struct_init(&pid_dir,Direction_pid,Vi_Position_Pid,200,200,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
+	appvar.pid_config[0][2] = 60; 
+	PID_struct_init(&pid_dir,Direction_pid,Vi_Position_Pid,100,100,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
 	pid_dir.f_pid_reset(&pid_dir,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
 	LOG("[AUTO:LOCATION]init\r\n");
 	while(1)
@@ -773,13 +1112,16 @@ static void location_thread(void *arg)
 			//读取轨迹点
 			auto_load_track(&track_index,&total_distance);
 			//初始化PID参数
-			PID_struct_init(&pid_dir,Direction_pid,Vi_Position_Pid,200,200,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
+			PID_struct_init(&pid_dir,Direction_pid,Vi_Position_Pid,100,100,appvar.pid_config[0][0],appvar.pid_config[0][1],appvar.pid_config[0][2]);
 			auto_cruise_pid_init();
 			location_contex.feed_switch = 1;
 			location_contex.auto_sail = 1;
 		}
 		//自巡航
-		auto_track_sailing(&calc_contex,&track_index,&corner_contex,&pid_dir);
+		// auto_track_sailing(&calc_contex,&track_index,&corner_contex,&pid_dir);
+
+		auto_track_follow(&calc_contex,&track_index,&corner_contex,&pid_dir);
+
 		LOG("[AUTO:LOCATION]running!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\r\n");
 		sleep(10);
 	}

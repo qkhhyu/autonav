@@ -23,7 +23,7 @@
  *  @since      v1.0
  *  @note       
  */
-static void pid_init(struct pid_t *pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp,float ki,float kd)
+static void pid_init(struct pid_t *pid,uint32_t object,uint32_t mode,float maxout,float intergral_limit,float kp,float ki,float kd)
 {
 	pid->IntegralLimit = intergral_limit;
 	pid->MaxOutput = maxout;
@@ -140,7 +140,7 @@ float pid_calc(struct pid_t* pid,float get, float set)
  *  @since      v1.0
  *  @note       
  */
-void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,uint32_t maxout,uint32_t intergral_limit,float kp, float 	ki, float kd)
+void PID_struct_init(struct pid_t* pid,uint32_t object,uint32_t mode,float maxout,float intergral_limit,float kp, float 	ki, float kd)
 {
 	memset(pid,0,sizeof(struct pid_t));
 	/*init function pointer*/
